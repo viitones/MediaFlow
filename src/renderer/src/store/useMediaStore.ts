@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type MediaType = 'imagem' | 'vídeo' | 'áudio'
+export type MediaType = 'image' | 'video' | 'audio'
 export type PlaybackMode = 'manual' | 'automatico' | 'automatico_intervalo' | 'loop'
 
 export interface Playlist {
@@ -19,6 +19,8 @@ export interface Media {
   caminho_arquivo: string
   duracao: number
   ordem: number
+  resolucao?: string
+  tamanho_arquivo?: number
 }
 
 export interface Config {
@@ -35,7 +37,9 @@ export type PlayerState =
   | 'PLAYING_IMAGE'
   | 'PLAYING_VIDEO'
   | 'PLAYING_AUDIO'
-  | 'PAUSED'
+  | 'PAUSED_IMAGE'
+  | 'PAUSED_VIDEO'
+  | 'PAUSED_AUDIO'
   | 'STOPPED'
   | 'ERROR'
 
@@ -302,11 +306,18 @@ export const useMediaStore = create<MediaStore>((set, get) => ({
     const idx = mediaIndex !== undefined ? mediaIndex : 0
     const media = medias[idx]
     const playerState: PlayerState =
-      media.tipo === 'imagem'
+      media.tipo === 'image'
         ? 'PLAYING_IMAGE'
-        : media.tipo === 'vídeo'
+        : media.tipo === 'video'
           ? 'PLAYING_VIDEO'
           : 'PLAYING_AUDIO'
+
+    if (media.tipo === 'video') {
+      console.log('VIDEO SELECTED (play)')
+      console.log('Objeto Carregado:', media)
+      console.log('Caminho Recebido:', media.caminho_arquivo)
+      console.log('Tipo Recebido:', media.tipo)
+    }
 
     set({
       playback: {
@@ -324,8 +335,14 @@ export const useMediaStore = create<MediaStore>((set, get) => ({
   },
 
   pause: () => {
+    const { playback } = get()
+    let playerState = playback.playerState
+    if (playerState === 'PLAYING_IMAGE') playerState = 'PAUSED_IMAGE'
+    else if (playerState === 'PLAYING_VIDEO') playerState = 'PAUSED_VIDEO'
+    else if (playerState === 'PLAYING_AUDIO') playerState = 'PAUSED_AUDIO'
+
     set((s) => ({
-      playback: { ...s.playback, isPlaying: false, isPaused: true, playerState: 'PAUSED' }
+      playback: { ...s.playback, isPlaying: false, isPaused: true, playerState }
     }))
     get().broadcastPlayback()
   },
@@ -333,9 +350,9 @@ export const useMediaStore = create<MediaStore>((set, get) => ({
   resume: () => {
     const { playback } = get()
     const playerState: PlayerState =
-      playback.currentMedia?.tipo === 'imagem'
+      playback.currentMedia?.tipo === 'image'
         ? 'PLAYING_IMAGE'
-        : playback.currentMedia?.tipo === 'vídeo'
+        : playback.currentMedia?.tipo === 'video'
           ? 'PLAYING_VIDEO'
           : 'PLAYING_AUDIO'
     set((s) => ({
@@ -373,9 +390,9 @@ export const useMediaStore = create<MediaStore>((set, get) => ({
 
     const media = queue[nextIndex]
     const playerState: PlayerState =
-      media.tipo === 'imagem'
+      media.tipo === 'image'
         ? 'PLAYING_IMAGE'
-        : media.tipo === 'vídeo'
+        : media.tipo === 'video'
           ? 'PLAYING_VIDEO'
           : 'PLAYING_AUDIO'
     set((s) => ({
@@ -399,9 +416,9 @@ export const useMediaStore = create<MediaStore>((set, get) => ({
     const prevIndex = Math.max(0, currentIndex - 1)
     const media = queue[prevIndex]
     const playerState: PlayerState =
-      media.tipo === 'imagem'
+      media.tipo === 'image'
         ? 'PLAYING_IMAGE'
-        : media.tipo === 'vídeo'
+        : media.tipo === 'video'
           ? 'PLAYING_VIDEO'
           : 'PLAYING_AUDIO'
     set((s) => ({
@@ -418,12 +435,19 @@ export const useMediaStore = create<MediaStore>((set, get) => ({
   },
 
   selectMedia: (media) => {
+    if (media.tipo === 'video') {
+      console.log('VIDEO SELECTED (selectMedia)')
+      console.log('Objeto Carregado:', media)
+      console.log('Caminho Recebido:', media.caminho_arquivo)
+      console.log('Tipo Recebido:', media.tipo)
+    }
+
     const { medias } = get()
     const index = medias.findIndex((m) => m.id === media.id)
     const playerState: PlayerState =
-      media.tipo === 'imagem'
+      media.tipo === 'image'
         ? 'PLAYING_IMAGE'
-        : media.tipo === 'vídeo'
+        : media.tipo === 'video'
           ? 'PLAYING_VIDEO'
           : 'PLAYING_AUDIO'
     set((s) => ({
@@ -470,9 +494,9 @@ export const useMediaStore = create<MediaStore>((set, get) => ({
       const media = queue[currentIndex]
       if (media) {
         const playerState: PlayerState =
-          media.tipo === 'imagem'
+          media.tipo === 'image'
             ? 'PLAYING_IMAGE'
-            : media.tipo === 'vídeo'
+            : media.tipo === 'video'
               ? 'PLAYING_VIDEO'
               : 'PLAYING_AUDIO'
         set((s) => ({
@@ -492,9 +516,9 @@ export const useMediaStore = create<MediaStore>((set, get) => ({
       if (queue.length > 0) {
         const media = queue[0]
         const playerState: PlayerState =
-          media.tipo === 'imagem'
+          media.tipo === 'image'
             ? 'PLAYING_IMAGE'
-            : media.tipo === 'vídeo'
+            : media.tipo === 'video'
               ? 'PLAYING_VIDEO'
               : 'PLAYING_AUDIO'
         set((s) => ({

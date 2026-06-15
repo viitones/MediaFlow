@@ -43,14 +43,15 @@ export default function PlayerView() {
 
   // Play/Pause control for video/audio elements
   useEffect(() => {
-    if (playerState === 'PLAYING_VIDEO' && videoRef.current) {
+    if ((playerState === 'PLAYING_VIDEO' || playerState === 'PAUSED_VIDEO') && videoRef.current) {
       if (isPlaying) {
-        videoRef.current.play().catch((e) => console.error('Video play error:', e))
+        videoRef.current.play().then(() => console.log('Video iniciado')).catch((e) => console.error('Video play error:', e))
       } else if (isPaused) {
+        console.log('Video pausado')
         videoRef.current.pause()
       }
     }
-    if (playerState === 'PLAYING_AUDIO' && audioRef.current) {
+    if ((playerState === 'PLAYING_AUDIO' || playerState === 'PAUSED_AUDIO') && audioRef.current) {
       if (isPlaying) {
         audioRef.current.play().catch((e) => console.error('Audio play error:', e))
       } else if (isPaused) {
@@ -58,6 +59,56 @@ export default function PlayerView() {
       }
     }
   }, [isPlaying, isPaused, playerState])
+
+  // Debug listeners
+  useEffect(() => {
+    if (playerState === 'PLAYING_VIDEO' || playerState === 'PAUSED_VIDEO') {
+      console.log('VIDEO RENDER')
+      console.log('Src:', currentMedia ? toMediaUrl(currentMedia.caminho_arquivo) : null)
+      console.log('Tipo:', currentMedia?.tipo)
+      console.log('Estado Atual:', playerState)
+    }
+
+    if (videoRef.current) {
+      const v = videoRef.current
+      console.log('Verificações de Codec:')
+      console.log('video/mp4:', v.canPlayType('video/mp4'))
+      console.log('video/webm:', v.canPlayType('video/webm'))
+      console.log('video/ogg:', v.canPlayType('video/ogg'))
+
+      const logEvent = (e: Event) => console.log(`Evento de vídeo disparado: ${e.type}`)
+      const errorLog = (e: Event) => {
+        const target = e.target as HTMLVideoElement
+        console.log(`Evento de vídeo disparado: error`)
+        console.log(`Error Code:`, target.error?.code)
+        console.log(`Error Message:`, target.error?.message)
+      }
+      
+      v.addEventListener('loadstart', logEvent)
+      v.addEventListener('loadedmetadata', logEvent)
+      v.addEventListener('loadeddata', logEvent)
+      v.addEventListener('canplay', logEvent)
+      v.addEventListener('canplaythrough', logEvent)
+      v.addEventListener('play', logEvent)
+      v.addEventListener('playing', logEvent)
+      v.addEventListener('pause', logEvent)
+      v.addEventListener('ended', logEvent)
+      v.addEventListener('error', errorLog)
+
+      return () => {
+        v.removeEventListener('loadstart', logEvent)
+        v.removeEventListener('loadedmetadata', logEvent)
+        v.removeEventListener('loadeddata', logEvent)
+        v.removeEventListener('canplay', logEvent)
+        v.removeEventListener('canplaythrough', logEvent)
+        v.removeEventListener('play', logEvent)
+        v.removeEventListener('playing', logEvent)
+        v.removeEventListener('pause', logEvent)
+        v.removeEventListener('ended', logEvent)
+        v.removeEventListener('error', errorLog)
+      }
+    }
+  }, [playerState, currentMedia])
 
   // Audio progress tracking
   const [audioProgress, setAudioProgress] = useState(0)
@@ -105,7 +156,7 @@ export default function PlayerView() {
 
   // --- IMAGE ---
   // key on currentMedia.id ensures React unmounts and remounts when media changes
-  if (playerState === 'PLAYING_IMAGE') {
+  if (playerState === 'PLAYING_IMAGE' || playerState === 'PAUSED_IMAGE') {
     return (
       <div key={`img-${currentMedia.id}`} className="w-screen h-screen bg-black flex items-center justify-center">
         <img
@@ -118,7 +169,7 @@ export default function PlayerView() {
   }
 
   // --- VIDEO ---
-  if (playerState === 'PLAYING_VIDEO') {
+  if (playerState === 'PLAYING_VIDEO' || playerState === 'PAUSED_VIDEO') {
     return (
       <div key={`vid-${currentMedia.id}`} className="w-screen h-screen bg-black flex items-center justify-center">
         <video
@@ -126,15 +177,22 @@ export default function PlayerView() {
           src={mediaUrl}
           className="w-full h-full object-contain"
           autoPlay
-          onEnded={handleMediaEnded}
-          onError={() => console.error('Video load error:', mediaUrl)}
+          preload="auto"
+          playsInline
+          onLoadedMetadata={() => console.log('Video carregado')}
+          onCanPlay={() => console.log('Video pronto para reprodução')}
+          onEnded={() => {
+            console.log('Video finalizado')
+            handleMediaEnded()
+          }}
+          onError={() => console.error('Erro ao carregar vídeo')}
         />
       </div>
     )
   }
 
   // --- AUDIO ---
-  if (playerState === 'PLAYING_AUDIO' || playerState === 'PAUSED') {
+  if (playerState === 'PLAYING_AUDIO' || playerState === 'PAUSED_AUDIO') {
     return (
       <div key={`aud-${currentMedia.id}`} className="w-screen h-screen bg-gray-950 flex flex-col items-center justify-center">
         <audio

@@ -16,10 +16,12 @@ export interface Media {
   id?: number
   playlist_id: number
   nome: string
-  tipo: 'imagem' | 'vídeo' | 'áudio'
+  tipo: 'image' | 'video' | 'audio'
   caminho_arquivo: string
   duracao: number
   ordem: number
+  resolucao?: string
+  tamanho_arquivo?: number
 }
 
 export interface Config {
@@ -74,6 +76,18 @@ export function initDatabase(): void {
     );
   `)
 
+  // Add new columns to midias if they don't exist
+  try {
+    db.exec('ALTER TABLE midias ADD COLUMN resolucao TEXT')
+  } catch (e) {
+    // Column might already exist
+  }
+  try {
+    db.exec('ALTER TABLE midias ADD COLUMN tamanho_arquivo INTEGER')
+  } catch (e) {
+    // Column might already exist
+  }
+
   // Seed default configuration if none exists
   const configExists = db.prepare('SELECT COUNT(*) as count FROM configuracoes').get() as {
     count: number
@@ -98,6 +112,17 @@ export function initDatabase(): void {
       VALUES (1, '', 'proxima')
     `
     ).run()
+  }
+
+  // Migrate legacy media types
+  try {
+    db.exec(`
+      UPDATE midias SET tipo = 'image' WHERE tipo = 'imagem';
+      UPDATE midias SET tipo = 'video' WHERE tipo = 'vídeo';
+      UPDATE midias SET tipo = 'audio' WHERE tipo = 'áudio';
+    `)
+  } catch (e) {
+    console.error('Migration error', e)
   }
 
   setupIpcHandlers()
@@ -149,10 +174,10 @@ function setupIpcHandlers(): void {
       db.prepare(
         `
         UPDATE midias 
-        SET nome = ?, tipo = ?, caminho_arquivo = ?, duracao = ?, ordem = ?
+        SET nome = ?, tipo = ?, caminho_arquivo = ?, duracao = ?, ordem = ?, resolucao = ?, tamanho_arquivo = ?
         WHERE id = ?
       `
-      ).run(media.nome, media.tipo, media.caminho_arquivo, media.duracao, media.ordem, media.id)
+      ).run(media.nome, media.tipo, media.caminho_arquivo, media.duracao, media.ordem, media.resolucao || null, media.tamanho_arquivo || null, media.id)
       return media.id
     } else {
       // Get next order index if not specified
@@ -166,11 +191,19 @@ function setupIpcHandlers(): void {
       const result = db
         .prepare(
           `
-        INSERT INTO midias (playlist_id, nome, tipo, caminho_arquivo, duracao, ordem)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO midias (playlist_id, nome, tipo, caminho_arquivo, duracao, ordem, resolucao, tamanho_arquivo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `
         )
-        .run(media.playlist_id, media.nome, media.tipo, media.caminho_arquivo, media.duracao, order)
+        .run(media.playlist_id, media.nome, media.tipo, media.caminho_arquivo, media.duracao, order, media.resolucao || null, media.tamanho_arquivo || null)
+      
+      if (media.tipo === 'video') {
+        console.log('VIDEO SAVED')
+        console.log('Path Salvo:', media.caminho_arquivo)
+        console.log('Tipo Salvo:', media.tipo)
+        console.log('ID Salvo:', result.lastInsertRowid)
+      }
+
       return result.lastInsertRowid
     }
   })

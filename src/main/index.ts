@@ -1,5 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
+import * as fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { initDatabase } from './database'
@@ -186,6 +187,17 @@ app.whenReady().then(() => {
     })
     if (result.canceled || result.filePaths.length === 0) return null
     return result.filePaths[0]
+  })
+
+  // File system utilities
+  ipcMain.handle('fs:get-file-size', async (_, filePath: string) => {
+    try {
+      const stats = await fs.promises.stat(filePath)
+      return stats.size
+    } catch (e) {
+      console.error('Error getting file size:', e)
+      return 0
+    }
   })
 
   // Playback sync event broadcasting

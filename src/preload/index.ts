@@ -27,6 +27,9 @@ const api = {
   selectMediaFiles: () => ipcRenderer.invoke('dialog:open-media'),
   selectIdleImage: () => ipcRenderer.invoke('dialog:open-idle-image'),
 
+  // File system API
+  getFileSize: (filePath: string) => ipcRenderer.invoke('fs:get-file-size', filePath),
+
   // Monitor API
   getMonitors: () => ipcRenderer.invoke('monitors:get-all'),
 

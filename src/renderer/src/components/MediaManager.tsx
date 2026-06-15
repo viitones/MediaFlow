@@ -16,27 +16,39 @@ import { useMediaStore, Media, MediaType } from '../store/useMediaStore'
 // Detect media type from file extension
 function detectMediaType(filePath: string): MediaType {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'imagem'
-  if (['mp4', 'webm', 'mov', 'mkv'].includes(ext)) return 'vídeo'
-  return 'áudio'
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image'
+  if (['mp4', 'webm', 'mov', 'mkv'].includes(ext)) return 'video'
+  return 'audio'
 }
 
-// Extract duration of audio/video via a temporary HTML element using media:// protocol
-function getMediaDuration(filePath: string, tipo: MediaType): Promise<number> {
-  if (tipo === 'imagem') return Promise.resolve(5)
+interface MediaInfo {
+  duracao: number
+  resolucao?: string
+}
+
+function getMediaInfo(filePath: string, tipo: MediaType): Promise<MediaInfo> {
+  if (tipo === 'image') return Promise.resolve({ duracao: 0 })
   return new Promise((resolve) => {
     const url = `media:///${encodeURIComponent(filePath.replace(/\\/g, '/'))}`
-    const el = document.createElement(tipo === 'vídeo' ? 'video' : 'audio')
+    const el = document.createElement(tipo === 'video' ? 'video' : 'audio')
     el.src = url
     el.preload = 'metadata'
     const cleanup = () => el.remove()
     el.onloadedmetadata = () => {
       cleanup()
-      resolve(Math.round(el.duration) || 0)
+      const duracao = Math.round(el.duration) || 0
+      let resolucao: string | undefined
+      if (tipo === 'video') {
+        const videoEl = el as HTMLVideoElement
+        if (videoEl.videoWidth && videoEl.videoHeight) {
+          resolucao = `${videoEl.videoWidth}x${videoEl.videoHeight}`
+        }
+      }
+      resolve({ duracao, resolucao })
     }
     el.onerror = () => {
       cleanup()
-      resolve(0)
+      resolve({ duracao: 0 })
     }
   })
 }
@@ -49,15 +61,15 @@ function formatDuration(seconds: number): string {
 }
 
 function MediaIcon({ tipo }: { tipo: MediaType }) {
-  if (tipo === 'vídeo') return <Video size={14} className="text-blue-400" />
-  if (tipo === 'áudio') return <Music2 size={14} className="text-green-400" />
+  if (tipo === 'video') return <Video size={14} className="text-blue-400" />
+  if (tipo === 'audio') return <Music2 size={14} className="text-green-400" />
   return <Image size={14} className="text-yellow-400" />
 }
 
 function MediaThumbnail({ media }: { media: Media }) {
   const url = `media:///${encodeURIComponent(media.caminho_arquivo.replace(/\\/g, '/'))}`
 
-  if (media.tipo === 'imagem') {
+  if (media.tipo === 'image') {
     return (
       <img
         src={url}
@@ -69,7 +81,7 @@ function MediaThumbnail({ media }: { media: Media }) {
       />
     )
   }
-  if (media.tipo === 'vídeo') {
+  if (media.tipo === 'video') {
     return (
       <div className="w-12 h-12 bg-blue-900/40 rounded flex items-center justify-center">
         <Video size={20} className="text-blue-400" />
@@ -100,17 +112,31 @@ export default function MediaManager() {
 
       for (const filePath of filePaths) {
         const tipo = detectMediaType(filePath)
-        const duracao = await getMediaDuration(filePath, tipo)
+        const { duracao, resolucao } = await getMediaInfo(filePath, tipo)
+        const tamanho_arquivo = await window.api.getFileSize(filePath)
         const nome = filePath.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') ?? 'Mídia'
 
-        await saveMedia({
+        const mediaToSave = {
           playlist_id: activePlaylist.id,
           nome,
           tipo,
           caminho_arquivo: filePath,
           duracao,
+          resolucao,
+          tamanho_arquivo,
           ordem: medias.length
-        })
+        }
+
+        if (tipo === 'video') {
+          console.log('VIDEO IMPORT')
+          console.log('Path:', filePath)
+          console.log('Tipo:', tipo)
+          console.log('Extensão:', filePath.split('.').pop())
+          console.log('MimeType Estimado:', 'video/' + filePath.split('.').pop())
+          console.log(mediaToSave)
+        }
+
+        await saveMedia(mediaToSave)
       }
     } finally {
       addingRef.current = false
@@ -202,9 +228,21 @@ export default function MediaManager() {
                             </div>
                             <div className="flex items-center gap-3 mt-0.5">
                               <span className="text-xs text-gray-500 capitalize">{media.tipo}</span>
-                              <span className="flex items-center gap-1 text-xs text-gray-500">
-                                <Clock size={10} /> {formatDuration(media.duracao)}
-                              </span>
+                              {media.tipo !== 'image' && (
+                                <span className="flex items-center gap-1 text-xs text-gray-500">
+                                  <Clock size={10} /> {formatDuration(media.duracao)}
+                                </span>
+                              )}
+                              {media.resolucao && (
+                                <span className="text-xs text-gray-500">
+                                  {media.resolucao}
+                                </span>
+                              )}
+                              {media.tamanho_arquivo && media.tamanho_arquivo > 0 && (
+                                <span className="text-xs text-gray-500">
+                                  {(media.tamanho_arquivo / 1024 / 1024).toFixed(1)} MB
+                                </span>
+                              )}
                             </div>
                           </div>
 

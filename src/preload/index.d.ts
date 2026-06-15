@@ -12,7 +12,7 @@ export interface Media {
   id: number
   playlist_id: number
   nome: string
-  tipo: 'imagem' | 'vídeo' | 'áudio'
+  tipo: 'image' | 'video' | 'audio'
   caminho_arquivo: string
   duracao: number
   ordem: number
@@ -54,7 +54,7 @@ export interface PlaybackState {
   playlistId: number | null
   queue: Media[]
   currentIndex: number
-  playerState: 'IDLE' | 'LOADING' | 'PLAYING_IMAGE' | 'PLAYING_VIDEO' | 'PLAYING_AUDIO' | 'PAUSED' | 'STOPPED' | 'ERROR'
+  playerState: 'IDLE' | 'LOADING' | 'PLAYING_IMAGE' | 'PLAYING_VIDEO' | 'PLAYING_AUDIO' | 'PAUSED_IMAGE' | 'PAUSED_VIDEO' | 'PAUSED_AUDIO' | 'STOPPED' | 'ERROR'
 }
 
 export interface Settings {
@@ -81,6 +81,8 @@ export interface Api {
   // File picker dialogues
   selectMediaFiles: () => Promise<string[]>
   selectIdleImage: () => Promise<string | null>
+  // File system utilities
+  getFileSize: (filePath: string) => Promise<number>
   // Monitors
   getMonitors: () => Promise<MonitorInfo[]>
   // Player window
