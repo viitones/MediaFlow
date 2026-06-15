@@ -13,7 +13,8 @@ export default function PlayerPreview() {
     closePlayerWindow,
     saveConfig,
     saveSettings,
-    loadMonitors
+    loadMonitors,
+    setVideoProgress
   } = useMediaStore()
   const { currentMedia, playerState, isPlaying, isPaused } = playback
 
@@ -96,6 +97,7 @@ export default function PlayerPreview() {
     if (playerState === 'PLAYING_VIDEO' || playerState === 'PAUSED_VIDEO') {
       return (
         <video
+          id="preview-video"
           key={`vid-${currentMedia.id}`}
           ref={(el) => {
             if (el && !videoRef.current) {
@@ -111,7 +113,14 @@ export default function PlayerPreview() {
           muted
           preload="auto"
           playsInline
-          onLoadedMetadata={() => console.log('VIDEO EVENT: loadedmetadata')}
+          onLoadedMetadata={(e) => {
+            console.log('VIDEO EVENT: loadedmetadata')
+            setVideoProgress(0, e.currentTarget.duration || 0)
+          }}
+          onTimeUpdate={(e) => {
+            const el = e.currentTarget
+            setVideoProgress(el.currentTime, el.duration || 0)
+          }}
           onLoadedData={() => console.log('VIDEO EVENT: loadeddata')}
           onCanPlay={() => console.log('VIDEO EVENT: canplay')}
           onCanPlayThrough={() => console.log('VIDEO EVENT: canplaythrough')}

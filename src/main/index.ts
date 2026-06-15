@@ -211,6 +211,12 @@ app.whenReady().then(() => {
     }
   })
 
+  ipcMain.on('playback:seek', (_, time: number) => {
+    if (playerWindow && !playerWindow.isDestroyed()) {
+      playerWindow.webContents.send('playback:seek', time)
+    }
+  })
+
   ipcMain.on('playback:request-sync', () => {
     // A window (usually the newly opened Player) is requesting sync.
     // We forward this request to the control window (mainWindow)

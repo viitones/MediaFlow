@@ -6,7 +6,7 @@ function toMediaUrl(path: string) {
 }
 
 export default function PlayerView() {
-  const { playback, settings, handleMediaEnded } = useMediaStore()
+  const { playback, settings, handleMediaEnded, setVideoProgress } = useMediaStore()
   const { currentMedia, isPlaying, isPaused, volume, playerState } = playback
 
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -59,6 +59,18 @@ export default function PlayerView() {
       }
     }
   }, [isPlaying, isPaused, playerState])
+
+  // Listen for seek events from IPC
+  useEffect(() => {
+    const unsubSeek = window.api.onPlaybackSeek((time) => {
+      if (videoRef.current) {
+        videoRef.current.currentTime = time
+      }
+    })
+    return () => {
+      unsubSeek()
+    }
+  }, [])
 
   // Debug listeners
   useEffect(() => {
@@ -173,14 +185,25 @@ export default function PlayerView() {
     return (
       <div key={`vid-${currentMedia.id}`} className="w-screen h-screen bg-black flex items-center justify-center">
         <video
-          ref={videoRef}
+          ref={(el) => {
+            if (el) {
+              videoRef.current = el
+            }
+          }}
           src={mediaUrl}
           className="w-full h-full object-contain"
           autoPlay
           preload="auto"
           playsInline
-          onLoadedMetadata={() => console.log('Video carregado')}
+          onLoadedMetadata={(e) => {
+            console.log('Video carregado')
+            setVideoProgress(0, e.currentTarget.duration || 0)
+          }}
           onCanPlay={() => console.log('Video pronto para reprodução')}
+          onTimeUpdate={(e) => {
+            const el = e.currentTarget
+            setVideoProgress(el.currentTime, el.duration || 0)
+          }}
           onEnded={() => {
             console.log('Video finalizado')
             handleMediaEnded()

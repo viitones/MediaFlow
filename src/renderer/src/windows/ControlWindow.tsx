@@ -35,7 +35,7 @@ export default function ControlWindow() {
       </div>
 
       {/* Bottom - Control bar */}
-      <div className="h-28 shrink-0">
+      <div className="min-h-28 shrink-0">
         <ControlPanel />
       </div>
     </div>

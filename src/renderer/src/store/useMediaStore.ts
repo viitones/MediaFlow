@@ -65,6 +65,8 @@ export interface PlaybackState {
   queue: Media[]
   currentIndex: number
   playerState: PlayerState
+  currentTime: number
+  duration: number
 }
 
 interface MediaStore {
@@ -121,6 +123,7 @@ interface MediaStore {
   handleMediaEnded: () => void
   syncPlayback: (state: PlaybackState) => void
   broadcastPlayback: () => void
+  setVideoProgress: (currentTime: number, duration: number) => void
 }
 
 const defaultPlayback: PlaybackState = {
@@ -132,7 +135,9 @@ const defaultPlayback: PlaybackState = {
   playlistId: null,
   queue: [],
   currentIndex: -1,
-  playerState: 'IDLE'
+  playerState: 'IDLE',
+  currentTime: 0,
+  duration: 0
 }
 
 const defaultConfig: Config = {
@@ -549,5 +554,9 @@ export const useMediaStore = create<MediaStore>((set, get) => ({
 
   broadcastPlayback: () => {
     window.api.sendPlaybackUpdate(get().playback as PlaybackState)
+  },
+
+  setVideoProgress: (currentTime: number, duration: number) => {
+    set((s) => ({ playback: { ...s.playback, currentTime, duration } }))
   }
 }))

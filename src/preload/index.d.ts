@@ -95,6 +95,8 @@ export interface Api {
   onPlaybackSync: (callback: (state: PlaybackState) => void) => () => void
   requestPlaybackSync: () => void
   onRequestPlaybackSync: (callback: () => void) => () => void
+  seekVideo: (time: number) => void
+  onPlaybackSeek: (callback: (time: number) => void) => () => void
   onPlayerStatus: (callback: (status: { isOpen: boolean }) => void) => () => void
 }
 

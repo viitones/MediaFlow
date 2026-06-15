@@ -1,6 +1,17 @@
 import { protocol } from 'electron'
 import * as fs from 'fs'
 import * as path from 'path'
+import { Readable, PassThrough } from 'stream'
+import ffmpeg from 'fluent-ffmpeg'
+import ffmpegStatic from 'ffmpeg-static'
+
+// Set ffmpeg binary path from ffmpeg-static
+if (ffmpegStatic) {
+  ffmpeg.setFfmpegPath(ffmpegStatic)
+}
+
+// Extensions that need codec transcoding (H.264/AAC -> WebM/VP8)
+const VIDEO_TRANSCODE_EXTS = ['.mp4', '.mov', '.mkv', '.avi', '.flv', '.m4v']
 
 // Register media:// scheme as privileged.
 // This MUST be called before app is ready.
@@ -19,6 +30,8 @@ export function registerMediaScheme(): void {
   ])
 }
 
+// Register the media:// protocol handler.
+// This is called after app is ready.
 export function setupMediaProtocol(): void {
   protocol.handle('media', (request) => {
     console.log('MEDIA REQUEST:', request.url)
@@ -37,22 +50,46 @@ export function setupMediaProtocol(): void {
       const fileSize = stat.size
       const ext = path.extname(filePath).toLowerCase()
 
+      // --- VIDEO: Transcode via FFmpeg to WebM/VP8 ---
+      if (VIDEO_TRANSCODE_EXTS.includes(ext)) {
+        console.log('TRANSCODING VIDEO:', filePath)
+
+        const passThrough = new PassThrough()
+
+        ffmpeg(filePath)
+          .format('webm')
+          .videoCodec('libvpx')
+          .audioCodec('libvorbis')
+          .outputOptions(['-quality realtime', '-cpu-used 8', '-deadline realtime'])
+          .on('start', (cmd) => console.log('FFmpeg started:', cmd))
+          .on('error', (err) => {
+            console.error('FFmpeg error:', err.message)
+            passThrough.destroy(err)
+          })
+          .on('end', () => console.log('FFmpeg transcode finished'))
+          .pipe(passThrough, { end: true })
+
+        const webStream = Readable.toWeb(passThrough) as ReadableStream
+
+        return new Response(webStream, {
+          status: 200,
+          headers: {
+            'Content-Type': 'video/webm',
+            'Transfer-Encoding': 'chunked'
+          }
+        })
+      }
+
+      // --- NON-VIDEO: Serve directly with Range support ---
       let contentType = 'application/octet-stream'
-      if (['.mp4'].includes(ext)) contentType = 'video/mp4'
-      else if (['.webm'].includes(ext)) contentType = 'video/webm'
-      else if (['.mov'].includes(ext)) contentType = 'video/quicktime'
-      else if (['.mkv'].includes(ext)) contentType = 'video/x-matroska'
-      else if (['.jpg', '.jpeg'].includes(ext)) contentType = 'image/jpeg'
+      if (['.jpg', '.jpeg'].includes(ext)) contentType = 'image/jpeg'
       else if (['.png'].includes(ext)) contentType = 'image/png'
       else if (['.gif'].includes(ext)) contentType = 'image/gif'
       else if (['.webp'].includes(ext)) contentType = 'image/webp'
       else if (['.mp3'].includes(ext)) contentType = 'audio/mpeg'
       else if (['.wav'].includes(ext)) contentType = 'audio/wav'
       else if (['.ogg'].includes(ext)) contentType = 'audio/ogg'
-
-      console.log('FILE SIZE:', fileSize)
-      console.log('EXTENSION:', ext)
-      console.log('CONTENT TYPE:', contentType)
+      else if (['.webm'].includes(ext)) contentType = 'video/webm'
 
       const rangeHeader = request.headers.get('Range')
 
@@ -62,12 +99,8 @@ export function setupMediaProtocol(): void {
         const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1
         const chunksize = end - start + 1
 
-        console.log('START:', start)
-        console.log('END:', end)
-        console.log('FILE SIZE:', fileSize)
-        
         const nodeStream = fs.createReadStream(filePath, { start, end })
-        const webStream = require('stream').Readable.toWeb(nodeStream)
+        const webStream = Readable.toWeb(nodeStream) as ReadableStream
 
         return new Response(webStream, {
           status: 206,
@@ -80,7 +113,7 @@ export function setupMediaProtocol(): void {
         })
       } else {
         const nodeStream = fs.createReadStream(filePath)
-        const webStream = require('stream').Readable.toWeb(nodeStream)
+        const webStream = Readable.toWeb(nodeStream) as ReadableStream
 
         return new Response(webStream, {
           status: 200,

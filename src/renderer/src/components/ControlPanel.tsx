@@ -18,11 +18,33 @@ const MODES: { value: PlaybackMode; label: string }[] = [
   { value: 'loop', label: 'Loop' }
 ]
 
+function formatTime(s: number): string {
+  if (!s || isNaN(s) || !isFinite(s)) return '0:00'
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = Math.floor(s % 60)
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
+  return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
 export default function ControlPanel() {
   const { playback, medias, play, pause, resume, stop, next, prev, setVolume, setPlaybackMode } =
     useMediaStore()
 
-  const { currentMedia, isPlaying, isPaused, volume, mode, queue, currentIndex } = playback
+  const {
+    currentMedia,
+    isPlaying,
+    isPaused,
+    volume,
+    mode,
+    queue,
+    currentIndex,
+    currentTime,
+    duration,
+    playerState
+  } = playback
+
+  const isVideo = playerState === 'PLAYING_VIDEO' || playerState === 'PAUSED_VIDEO'
 
   const handlePlayPause = () => {
     if (!isPlaying && !isPaused) {
@@ -32,6 +54,15 @@ export default function ControlPanel() {
     } else {
       resume()
     }
+  }
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = Number(e.target.value)
+    // Seek no elemento de vídeo da janela Player via IPC
+    window.api.seekVideo(newTime)
+    // Seek no elemento de vídeo do Preview
+    const previewVideo = document.querySelector<HTMLVideoElement>('#preview-video')
+    if (previewVideo) previewVideo.currentTime = newTime
   }
 
   const upcomingQueue = queue.slice(currentIndex + 1, currentIndex + 6)
@@ -47,6 +78,27 @@ export default function ControlPanel() {
           <p className="text-sm text-gray-600">Nenhuma mídia selecionada</p>
         )}
       </div>
+
+      {/* Video progress bar — visible only when a video is playing/paused */}
+      {isVideo && (
+        <div className="px-4 pt-2 pb-1 flex items-center gap-2">
+          <span className="text-xs text-gray-400 w-10 text-right tabular-nums shrink-0">
+            {formatTime(currentTime)}
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={duration > 0 ? duration : 100}
+            step={0.25}
+            value={currentTime}
+            onChange={handleSeek}
+            className="flex-1 accent-indigo-500 h-1.5 cursor-pointer"
+          />
+          <span className="text-xs text-gray-400 w-10 tabular-nums shrink-0">
+            {formatTime(duration)}
+          </span>
+        </div>
+      )}
 
       <div className="flex flex-1 gap-4 px-4 py-3 items-center">
         {/* Transport controls */}

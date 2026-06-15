@@ -58,6 +58,14 @@ const api = {
       ipcRenderer.off('playback:request-sync', listener)
     }
   },
+  seekVideo: (time: number) => ipcRenderer.send('playback:seek', time),
+  onPlaybackSeek: (callback: (time: number) => void) => {
+    const listener = (_event: any, time: number) => callback(time)
+    ipcRenderer.on('playback:seek', listener)
+    return () => {
+      ipcRenderer.off('playback:seek', listener)
+    }
+  },
   onPlayerStatus: (callback: (status: { isOpen: boolean }) => void) => {
     const listener = (_event: any, status: { isOpen: boolean }) => callback(status)
     ipcRenderer.on('player:status', listener)
