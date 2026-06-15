@@ -120,6 +120,7 @@ export default function PlayerView() {
         v.removeEventListener('error', errorLog)
       }
     }
+    return
   }, [playerState, currentMedia])
 
   // Audio progress tracking

@@ -26,31 +26,17 @@ interface MediaInfo {
   resolucao?: string
 }
 
-function getMediaInfo(filePath: string, tipo: MediaType): Promise<MediaInfo> {
-  if (tipo === 'image') return Promise.resolve({ duracao: 0 })
-  return new Promise((resolve) => {
-    const url = `media:///${encodeURIComponent(filePath.replace(/\\/g, '/'))}`
-    const el = document.createElement(tipo === 'video' ? 'video' : 'audio')
-    el.src = url
-    el.preload = 'metadata'
-    const cleanup = () => el.remove()
-    el.onloadedmetadata = () => {
-      cleanup()
-      const duracao = Math.round(el.duration) || 0
-      let resolucao: string | undefined
-      if (tipo === 'video') {
-        const videoEl = el as HTMLVideoElement
-        if (videoEl.videoWidth && videoEl.videoHeight) {
-          resolucao = `${videoEl.videoWidth}x${videoEl.videoHeight}`
-        }
-      }
-      resolve({ duracao, resolucao })
-    }
-    el.onerror = () => {
-      cleanup()
-      resolve({ duracao: 0 })
-    }
-  })
+async function getMediaInfo(filePath: string, tipo: MediaType): Promise<MediaInfo> {
+  if (tipo === 'image') return { duracao: 0 }
+  try {
+    const { duration, width, height } = await window.api.getVideoMetadata(filePath)
+    const duracao = Math.round(duration)
+    const resolucao = width > 0 && height > 0 ? `${width}x${height}` : undefined
+    return { duracao, resolucao }
+  } catch (e) {
+    console.error('Error getting media info via FFmpeg:', e)
+    return { duracao: 0 }
+  }
 }
 
 function formatDuration(seconds: number): string {
@@ -130,11 +116,16 @@ export default function MediaManager() {
         }
 
         if (tipo === 'video') {
-          console.log('VIDEO IMPORT')
-          console.log('Path:', filePath)
-          console.log('Tipo:', tipo)
-          console.log('Extensão:', filePath.split('.').pop())
-          console.log('MimeType Estimado:', 'video/' + filePath.split('.').pop())
+          const duration = duracao
+          const [wStr, hStr] = resolucao?.split('x') ?? []
+          const width = Number(wStr) || 0
+          const height = Number(hStr) || 0
+          console.log('VIDEO METADATA')
+          console.log('duration:', duration)
+          console.log('width:', width)
+          console.log('height:', height)
+
+          console.log('SAVING VIDEO')
           console.log(mediaToSave)
         }
 
@@ -196,8 +187,14 @@ export default function MediaManager() {
                   {...provided.droppableProps}
                   className="p-3 space-y-1.5"
                 >
-                  {medias.map((media, index) => (
-                    <Draggable key={media.id} draggableId={String(media.id)} index={index}>
+                  {medias.map((media, index) => {
+                    if (media.tipo === 'video') {
+                      console.log('MEDIA RENDER LIST (duration field check):')
+                      console.log('media.duration (or equival):', media.duracao)
+                      console.log('full media object:', media)
+                    }
+                    return (
+                      <Draggable key={media.id} draggableId={String(media.id)} index={index}>
                       {(provided, snapshot) => (
                         <div
                           ref={provided.innerRef}
@@ -268,7 +265,7 @@ export default function MediaManager() {
                         </div>
                       )}
                     </Draggable>
-                  ))}
+                  )})}
                   {provided.placeholder}
                 </div>
               )}

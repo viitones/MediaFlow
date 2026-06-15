@@ -16,6 +16,8 @@ export interface Media {
   caminho_arquivo: string
   duracao: number
   ordem: number
+  resolucao?: string
+  tamanho_arquivo?: number
 }
 
 export interface Config {
@@ -55,6 +57,8 @@ export interface PlaybackState {
   queue: Media[]
   currentIndex: number
   playerState: 'IDLE' | 'LOADING' | 'PLAYING_IMAGE' | 'PLAYING_VIDEO' | 'PLAYING_AUDIO' | 'PAUSED_IMAGE' | 'PAUSED_VIDEO' | 'PAUSED_AUDIO' | 'STOPPED' | 'ERROR'
+  currentTime: number
+  duration: number
 }
 
 export interface Settings {
@@ -83,6 +87,7 @@ export interface Api {
   selectIdleImage: () => Promise<string | null>
   // File system utilities
   getFileSize: (filePath: string) => Promise<number>
+  getVideoMetadata: (filePath: string) => Promise<{ duration: number; width: number; height: number }>
   // Monitors
   getMonitors: () => Promise<MonitorInfo[]>
   // Player window

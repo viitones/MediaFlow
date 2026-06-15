@@ -162,11 +162,13 @@ function setupIpcHandlers(): void {
     return true
   })
 
-  // Mídias
   ipcMain.handle('db:get-medias', (_, playlistId: number) => {
-    return db
+    const media = db
       .prepare('SELECT * FROM midias WHERE playlist_id = ? ORDER BY ordem ASC')
       .all(playlistId)
+    console.log('MEDIA LOADED')
+    console.log(media)
+    return media
   })
 
   ipcMain.handle('db:save-media', (_, media: Media) => {

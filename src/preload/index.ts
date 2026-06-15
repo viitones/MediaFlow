@@ -29,6 +29,7 @@ const api = {
 
   // File system API
   getFileSize: (filePath: string) => ipcRenderer.invoke('fs:get-file-size', filePath),
+  getVideoMetadata: (filePath: string) => ipcRenderer.invoke('fs:get-video-metadata', filePath),
 
   // Monitor API
   getMonitors: () => ipcRenderer.invoke('monitors:get-all'),

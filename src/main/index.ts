@@ -1,6 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import * as fs from 'fs'
+import { execFile } from 'child_process'
+import ffmpegStatic from 'ffmpeg-static'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { initDatabase } from './database'
@@ -198,6 +200,42 @@ app.whenReady().then(() => {
       console.error('Error getting file size:', e)
       return 0
     }
+  })
+
+  ipcMain.handle('fs:get-video-metadata', async (_, filePath: string) => {
+    return new Promise((resolve) => {
+      if (!ffmpegStatic) {
+        console.error('FFmpeg static binary not found')
+        return resolve({ duration: 0, width: 0, height: 0 })
+      }
+      execFile(ffmpegStatic, ['-i', filePath], (_error, stdout, stderr) => {
+        const output = stderr || stdout
+
+        // Parse duration: "Duration: 00:03:26.77"
+        const durationMatch = output.match(/Duration:\s*(\d+):(\d+):(\d+\.\d+)/)
+        let duration = 0
+        if (durationMatch) {
+          const hours = parseInt(durationMatch[1], 10)
+          const minutes = parseInt(durationMatch[2], 10)
+          const seconds = parseFloat(durationMatch[3])
+          duration = hours * 3600 + minutes * 60 + seconds
+        }
+
+        let width = 0
+        let height = 0
+        const lines = output.split('\n')
+        const videoLine = lines.find((l) => l.includes('Stream #') && l.includes('Video:'))
+        if (videoLine) {
+          const resMatch = videoLine.match(/,\s*(\d+)x(\d+)/)
+          if (resMatch) {
+            width = parseInt(resMatch[1], 10)
+            height = parseInt(resMatch[2], 10)
+          }
+        }
+
+        resolve({ duration, width, height })
+      })
+    })
   })
 
   // Playback sync event broadcasting

@@ -198,6 +198,8 @@ export const useMediaStore = create<MediaStore>((set, get) => ({
 
   loadMedias: async (playlistId) => {
     const medias = await window.api.getMedias(playlistId)
+    console.log('MEDIA LOADED')
+    console.log(medias)
     set({ medias })
   },
 
